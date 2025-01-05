@@ -59,6 +59,15 @@ async function readCsvFile(filePath) {
     });
 }
 
+function comparePluginVersions(row1, row2) {
+    // First compare SDK versions
+    const sdkCompare = compareVersions(row1['SDK Version'], row2['SDK Version']);
+    if (sdkCompare !== 0) return sdkCompare;
+    
+    // If SDK versions are equal, compare plugin versions
+    return compareVersions(row1.Version, row2.Version);
+}
+
 async function combineCsvFiles(mainFile, additionalFiles) {
     try {
         // Read the main file first
@@ -100,28 +109,32 @@ async function combineCsvFiles(mainFile, additionalFiles) {
                 const key = `${row.Software}|${row.Company}`;
                 if (pluginMap.has(key)) {
                     const existing = pluginMap.get(key);
-                    const versionCompare = compareVersions(row['SDK Version'], existing['SDK Version']);
+                    const versionCompare = comparePluginVersions(row, {
+                        'SDK Version': existing['SDK Version'],
+                        'Version': existing.Version
+                    });
                     
                     if (versionCompare === 0) {
                         existing.sources[fileName] = 'OK';
+                    } else if (versionCompare > 0) {
+                        // This file has a newer version
+                        // Mark the current file as OK since it's the newer one
+                        existing.sources[fileName] = 'OK';
+                        // Mark the main file as UPDATE since it had the older version
+                        existing.sources[mainFileName] = {
+                            status: 'UPDATE',
+                            originalVersion: existing.Version
+                        };
+                        // Update to the newer version
+                        existing['SDK Version'] = row['SDK Version'];
+                        existing.Version = row.Version || '';
+                        existing.Type = row.Type || '';
                     } else {
+                        // This file has an older version
                         existing.sources[fileName] = {
                             status: 'UPDATE',
                             originalVersion: row.Version || ''
                         };
-                    }
-                    
-                    if (versionCompare > 0) {
-                        // Store the current version before updating
-                        if (existing['SDK Version'] !== row['SDK Version']) {
-                            existing.sources[mainFileName] = {
-                                status: 'UPDATE',
-                                originalVersion: existing.Version
-                            };
-                        }
-                        existing['SDK Version'] = row['SDK Version'];
-                        existing.Version = row.Version || '';
-                        existing.Type = row.Type || '';
                     }
                 } else {
                     pluginMap.set(key, {
