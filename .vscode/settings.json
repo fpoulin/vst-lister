@@ -1,0 +1,6 @@
+{
+    "sonarlint.connectedMode.project": {
+        "connectionId": "florian-poulin",
+        "projectKey": "fpoulin_vst-lister"
+    }
+}
