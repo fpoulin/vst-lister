@@ -1,0 +1,10 @@
+{
+  "name": "vst-lister",
+  "version": "1.0.0",
+  "description": "VST database explorer",
+  "main": "vst-lister.js",
+  "dependencies": {
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7"
+  }
+}

@@ -1,0 +1,15 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Project specific
+*.db
+*.csv
+.db_path
+
+# OS specific
+.DS_Store
+.env
+*.log 
