@@ -21,16 +21,24 @@ function parseVersion(version) {
 }
 
 function compareVersions(v1, v2) {
-    // If both versions are numeric, compare them directly
-    if (/^\d+$/.test(v1) && /^\d+$/.test(v2)) {
+    // If either version is null/undefined, treat them as equal
+    if (!v1 || !v2) return 0;
+    
+    // Check if versions are in different formats (VST2 vs VST3)
+    const isV1Numeric = /^\d+$/.test(v1);
+    const isV2Numeric = /^\d+$/.test(v2);
+    
+    // If they're in different formats, they should never be compared
+    if (isV1Numeric !== isV2Numeric) {
+        throw new Error('Cannot compare VST2 and VST3 versions');
+    }
+    
+    // If both versions are numeric (VST2), compare them directly
+    if (isV1Numeric && isV2Numeric) {
         return parseInt(v1) - parseInt(v2);
     }
     
-    // If one is numeric and the other is semver, treat numeric as older
-    if (/^\d+$/.test(v1)) return -1;
-    if (/^\d+$/.test(v2)) return 1;
-    
-    // Otherwise, compare as semver
+    // Otherwise, compare as semver (VST3)
     const parts1 = parseVersion(v1);
     const parts2 = parseVersion(v2);
     
@@ -82,16 +90,24 @@ async function combineCsvFiles(mainFile, additionalFiles) {
         // Process main file
         const mainFileName = path.basename(mainFile, '.csv');
         mainData.forEach(row => {
-            const key = `${row.Software}|${row.Company}`;
+            // Include VST version type in the key
+            const isVst2 = /^\d+$/.test(row['SDK Version']);
+            const key = `${row.Software}|${row.Company}|${isVst2 ? 'VST2' : 'VST3'}`;
+            const allSources = {};
+            // Initialize all sources as MISSING
+            [mainFileName, ...additionalFiles.map(f => path.basename(f, '.csv'))].forEach(source => {
+                allSources[source] = 'MISSING';
+            });
+            // Set main file as OK
+            allSources[mainFileName] = 'OK';
+            
             pluginMap.set(key, {
                 Company: row.Company,
                 Software: row.Software,
                 Version: row.Version || '',
                 'SDK Version': row['SDK Version'],
                 Type: row.Type || '',
-                sources: {
-                    [mainFileName]: 'OK'
-                }
+                sources: allSources
             });
         });
 
@@ -106,54 +122,79 @@ async function combineCsvFiles(mainFile, additionalFiles) {
             }
 
             fileData.forEach(row => {
-                const key = `${row.Software}|${row.Company}`;
+                // Include VST version type in the key
+                const isVst2 = /^\d+$/.test(row['SDK Version']);
+                const key = `${row.Software}|${row.Company}|${isVst2 ? 'VST2' : 'VST3'}`;
                 if (pluginMap.has(key)) {
                     const existing = pluginMap.get(key);
-                    const versionCompare = comparePluginVersions(row, {
-                        'SDK Version': existing['SDK Version'],
-                        'Version': existing.Version
-                    });
-                    
-                    if (versionCompare === 0) {
-                        existing.sources[fileName] = 'OK';
-                    } else if (versionCompare > 0) {
-                        // This file has a newer version
-                        // Mark the current file as OK since it's the newer one
-                        existing.sources[fileName] = 'OK';
-                        // Mark the main file as UPDATE since it had the older version
-                        existing.sources[mainFileName] = {
-                            status: 'UPDATE',
-                            originalVersion: existing.Version
-                        };
-                        // Update to the newer version
-                        existing['SDK Version'] = row['SDK Version'];
-                        existing.Version = row.Version || '';
-                        existing.Type = row.Type || '';
-                    } else {
-                        // This file has an older version
-                        existing.sources[fileName] = {
-                            status: 'UPDATE',
-                            originalVersion: row.Version || ''
-                        };
+                    try {
+                        const versionCompare = comparePluginVersions(row, {
+                            'SDK Version': existing['SDK Version'],
+                            'Version': existing.Version
+                        });
+                        
+                        if (versionCompare === 0) {
+                            // Same version - mark as OK
+                            existing.sources[fileName] = 'OK';
+                        } else if (versionCompare > 0) {
+                            // Current file has newer version
+                            // Update the version info
+                            existing['SDK Version'] = row['SDK Version'];
+                            existing.Version = row.Version || '';
+                            existing.Type = row.Type || '';
+                            // Mark current file as OK
+                            existing.sources[fileName] = 'OK';
+                            // Mark all other non-MISSING sources as UPDATE
+                            Object.keys(existing.sources).forEach(source => {
+                                if (source !== fileName && existing.sources[source] !== 'MISSING') {
+                                    existing.sources[source] = {
+                                        status: 'UPDATE',
+                                        originalVersion: source === mainFileName ? existing.Version : 
+                                            (typeof existing.sources[source] === 'object' ? 
+                                                existing.sources[source].originalVersion : existing.Version)
+                                    };
+                                }
+                            });
+                        } else {
+                            // Current file has older version
+                            existing.sources[fileName] = {
+                                status: 'UPDATE',
+                                originalVersion: row.Version || ''
+                            };
+                        }
+                    } catch (error) {
+                        // If version comparison fails (different VST types), treat as a separate plugin
+                        const allSources = {};
+                        [mainFileName, ...additionalFiles.map(f => path.basename(f, '.csv'))].forEach(source => {
+                            allSources[source] = 'MISSING';
+                        });
+                        allSources[fileName] = 'OK';
+                        
+                        pluginMap.set(key, {
+                            Company: row.Company,
+                            Software: row.Software,
+                            Version: row.Version || '',
+                            'SDK Version': row['SDK Version'],
+                            Type: row.Type || '',
+                            sources: allSources
+                        });
                     }
                 } else {
+                    // New plugin found in additional file
+                    const allSources = {};
+                    [mainFileName, ...additionalFiles.map(f => path.basename(f, '.csv'))].forEach(source => {
+                        allSources[source] = 'MISSING';
+                    });
+                    allSources[fileName] = 'OK';
+                    
                     pluginMap.set(key, {
                         Company: row.Company,
                         Software: row.Software,
                         Version: row.Version || '',
                         'SDK Version': row['SDK Version'],
                         Type: row.Type || '',
-                        sources: {
-                            [fileName]: 'OK'
-                        }
+                        sources: allSources
                     });
-                }
-            });
-
-            // Mark missing plugins
-            pluginMap.forEach(plugin => {
-                if (!plugin.sources[fileName]) {
-                    plugin.sources[fileName] = 'MISSING';
                 }
             });
         }
