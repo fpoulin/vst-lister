@@ -5,6 +5,8 @@
   "main": "vst-lister.js",
   "dependencies": {
     "sqlite": "^5.1.1",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^5.1.7",
+    "csv-parse": "^5.5.3",
+    "csv-stringify": "^6.4.5"
   }
 }

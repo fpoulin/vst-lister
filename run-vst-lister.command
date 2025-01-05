@@ -60,10 +60,50 @@ fi
 # Run the script
 node vst-lister.js
 
-# If successful, open the CSV file
+# If successful, offer to compare with other CSVs
 if [ $? -eq 0 ]; then
-    echo "✅ Done! Opening the CSV file..."
-    open plugins.csv
+    echo "✅ Initial CSV generated successfully!"
+    echo ""
+    echo "Would you like to compare with other CSV files in this directory? (y/n)"
+    read COMPARE_CHOICE
+    
+    if [[ $COMPARE_CHOICE == "y" || $COMPARE_CHOICE == "Y" ]]; then
+        # Create a temporary file to store the list of CSVs to compare
+        TEMP_LIST=".csv_list"
+        echo "plugins.csv" > "$TEMP_LIST"
+        
+        # Find all other CSV files
+        for csv in *.csv; do
+            if [ "$csv" != "plugins.csv" ] && [ "$csv" != "combined_plugins.csv" ]; then
+                echo "Found: $csv"
+                echo "Include this file in comparison? (y/n)"
+                read INCLUDE_FILE
+                if [[ $INCLUDE_FILE == "y" || $INCLUDE_FILE == "Y" ]]; then
+                    echo "$csv" >> "$TEMP_LIST"
+                fi
+            fi
+        done
+        
+        # If we have more than just the original file
+        if [ $(wc -l < "$TEMP_LIST") -gt 1 ]; then
+            echo "Combining CSV files..."
+            node vst-combine.js $(cat "$TEMP_LIST") > combined_plugins.csv
+            if [ $? -eq 0 ]; then
+                echo "✅ Combined CSV generated successfully!"
+                open combined_plugins.csv
+            else
+                echo "❌ Error combining CSV files"
+            fi
+        else
+            echo "No additional CSV files selected for comparison."
+            open plugins.csv
+        fi
+        
+        # Clean up
+        rm "$TEMP_LIST"
+    else
+        open plugins.csv
+    fi
 fi
 
 echo ""
