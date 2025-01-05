@@ -1,6 +1,6 @@
 # VST Plugin Lister
 
-This tool creates a CSV file listing all your VST plugins from Ableton Live's database.
+This tool creates a CSV file listing all your VST plugins from Ableton Live's database. It also helps music collaborators identify which plugins they have in common.
 
 ⚠️ Disclaimer: This tool is 100% AI-generated and has only been tested with Ableton Live 12.1. Use at your own risk.
 
@@ -37,3 +37,29 @@ This tool creates a CSV file listing all your VST plugins from Ableton Live's da
 
 ### After Running (all platforms)
 The exported plugins list will be saved as `plugins.csv` and should open automatically in your default spreadsheet application (Excel/Numbers). 
+
+## Collaboration Features
+
+This tool helps music producers identify which plugins they have in common with their collaborators. Here's how to use it:
+
+1. Each collaborator should run this tool on their own machine to generate their personal `plugins.csv`
+2. Share your CSV files with each other (e.g., via email, Dropbox, etc.)
+3. Place all the CSV files in the same folder as this tool
+4. Run the tool again, and when prompted to compare with other CSV files:
+   - Select 'y' to enable comparison
+   - Choose which CSV files to include in the comparison
+
+The tool will generate a new `combined_plugins.csv` that shows:
+- All plugins from all collaborators
+- Which plugins are present in each collaborator's system
+- Version differences between installations
+- A "Collaboration Material" column indicating if a plugin is:
+  - "Yes": Available on all systems with matching versions
+  - "Check version": Available but with different versions
+  - "No": Missing on some systems
+- A "Remarks" column showing version details when there are differences
+
+This makes it easy to:
+- Find plugins you all have in common
+- Identify which plugins need to be shared or purchased
+- Spot version mismatches that might cause compatibility issues 
